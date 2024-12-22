@@ -8,7 +8,7 @@ var builder = Host.CreateApplicationBuilder(args);
 //var botConfigSection = builder.Configuration.GetSection("Telegram");
 builder.Services.AddHostedService<TelegramBotService>();
 
-builder.Services.AddTransient<ITelegramBotClient,   TelegramBotClient>(serviceProvider =>
+builder.Services.AddTransient<ITelegramBotClient, TelegramBotClient>(serviceProvider =>
 {
     var token = serviceProvider.GetRequiredService<IOptions<TelegramOptions>>().Value.Token;
     return new(token);

@@ -1,11 +1,19 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
+using System;
+using System.Runtime.InteropServices.Marshalling;
+using System.Security.Cryptography.Xml;
+using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramBotASP.TelegramBotOptions;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace TelegramBotASP.TelegramBotService;
 
@@ -50,30 +58,88 @@ public class TelegramBotService : BackgroundService
 
     }
 
-    async Task HandleErrorAsync(ITelegramBotClient client, Exception exception, CancellationToken token)
+    async Task HandleErrorAsync(
+                            ITelegramBotClient botClient, 
+                            Exception exception, 
+                            CancellationToken token)
     {
-        var errorMessage = exception switch
+        //var errorMessage = exception switch
+        //{
+        //    ApiRequestException apiRequestException =>
+        //    //$" Telegram Error Api : [{apiRequestException.ErrorCode}]\n" +
+        //    //$"{apiRequestException.Message}",
+        //    string.Format(
+        //        " Telegram Error Api : [{0}]\n" + "{1}",
+        //        apiRequestException.ErrorCode,
+        //        apiRequestException.Message),
+        //    _ => exception.ToString()
+        //};
+        switch (exception)
         {
-            ApiRequestException apiRequestException =>
-            $" Telegram Error Api : [{apiRequestException.ErrorCode}]\n" +
-            $"{apiRequestException.Message}",
-            _ => exception.ToString()
-        };
+            case ApiRequestException apiRequestException:
+                _logger.LogError(
+                    apiRequestException,
+                    "Telegram Error Api: [{ErrorCode}]\n {Message}",
+                    apiRequestException.ErrorCode,
+                    apiRequestException.Message
+                    );
+                break;
+
+            default:
+                _logger.LogError(exception, "Error while processing message in telegram Bot");
+                break;
+                //return Task.CompletedTask;
+        }
     }
+
+    private async Task MessageTextHandler(Message message, CancellationToken cancellationToken)
+    {
+        if(message.Text is not { } messageText)
+            return;
+
+        switch (messageText.Split(' ')[0])
+        {
+            case "Start":
+                await SendStartMessage(message.Chat.Id, cancellationToken);
+                break;
+            case "info-message":
+                await _botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "Вот информация!",
+                    cancellationToken: cancellationToken);
+                break; 
+            
+        }
+    }
+
+    private async Task CallbackQueryHandler(CallbackQuery queryMessage, CancellationToken cancellationToken)
+    {
+        if(queryMessage.Message is not { } message ) return;    
+        switch (queryMessage.Data)
+        {
+            case "/start":
+                await SendStartMessage(message.Id, cancellationToken);
+                return;
+
+            case "info-message":
+                await _botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text   : "Вот информация!",
+                    cancellationToken: cancellationToken); 
+                return;
+        }
+    }
+
 
     async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        if (update.Message is not { } message)
-            return;
-        if (message.Text is not { } messageText)
-            return;
-
-        switch(messageText)
+        var handler = update switch
         {
-            case "/start":
-                    
-        }
-
+            { Message: { } message } => MessageTextHandler(message, cancellationToken),
+            { CallbackQuery: { } queryMessage } => CallbackQueryHandler(queryMessage, cancellationToken),
+            _ => UnknownUpdateDetails(update,cancellationToken)
+        };
+        await handler;
 
         InlineKeyboardMarkup inlineKeyboardMarkup1 = new(new[] {
             InlineKeyboardButton.WithCallbackData("Start","start-bot"),
@@ -89,39 +155,48 @@ public class TelegramBotService : BackgroundService
 
 
 
-        var chatId = message.Chat.Id;
-
-        Console.WriteLine($"{DateTime.UtcNow}  :  {message.Chat.FirstName ?? "Аноним"}  => |   {message.Text} ");
-
-        Message startMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            //text: "You said: " + message.Text,          // text
-            text: "Выбери Опцию",
-            //replyMarkup: inlineKeyboardMarkup1,          // button
-            replyMarkup: inlineKeyboardMarkup2,
-            cancellationToken: cancellationToken);      // endpoint
         
-        Console.WriteLine($"{DateTime.UtcNow}  :  {"BOT"}  => |   {startMessage.Text} ");
+
+        //Console.WriteLine($"{DateTime.UtcNow}  :  {message.Chat.FirstName ?? "Аноним"}  => |   {message.Text} ");
+
+        //Message startMessage = await botClient.SendTextMessageAsync(
+        //    chatId: message.Chat.Id,
+        //    //text: "You said: " + message.Text,          // text
+        //    text: "Выбери Опцию",
+        //    //replyMarkup: inlineKeyboardMarkup1,          // button
+        //    replyMarkup: inlineKeyboardMarkup2,
+        //    cancellationToken: cancellationToken);      // endpoint
+        
+        //Console.WriteLine($"{DateTime.UtcNow}  :  {"BOT"}  => |   {startMessage.Text} ");
     }
+
+    private Task UnknownUpdateDetails(Update update, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Unknown type message");
+        return Task.CompletedTask;
+    }
+
     private async Task<Message> SendStartMessage(
-        
-        Message message, 
+        long chatId, 
         CancellationToken cancellationToken)
     {
-        Message startMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: "Выбери Опцию",
-            replyMarkup: inlineKeyboardMarkup2,
-            cancellationToken: cancellationToken);      
-
-
-
-
+        //1
         var inlineMarkup = new InlineKeyboardMarkup()
             .AddNewRow("1.1", "1.2", "1.3")
             .AddNewRow()
                 .AddButton("WithCallbackData", "CallbackData")
                 .AddButton(InlineKeyboardButton.WithUrl("WithUrl", "https://github.com/TelegramBots/Telegram.Bot"));
-        return await bot.SendMessage(msg.Chat, "Inline buttons:", replyMarkup: inlineMarkup);
+        
+        //2
+        Message startMessage = await _botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: "Выбери Опцию",
+            replyMarkup: inlineMarkup,
+            cancellationToken: cancellationToken);      
+
+
+
+
+        return await _botClient.SendMessage(startMessage.Chat, "Inline buttons:", replyMarkup: inlineMarkup);
     }
 }
