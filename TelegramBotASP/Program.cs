@@ -24,6 +24,8 @@ builder.Services.AddTransient<ITelegramBotClient, TelegramBotClient>(serviceProv
 //                    return new TelegramBotClient(options, httpClient);
 //                });
 
+builder.Services.AddTransient<IHandler,MessageHandler>();
+
 builder.Services.Configure<TelegramOptions>(builder.Configuration.GetSection(TelegramOptions.Telegram));
 var host = builder.Build();
 host.Run();

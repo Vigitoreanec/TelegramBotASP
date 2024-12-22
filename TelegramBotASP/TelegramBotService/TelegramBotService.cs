@@ -99,6 +99,7 @@ public class TelegramBotService : BackgroundService
 
         switch (messageText.Split(' ')[0])
         {
+            
             case "Start":
                 await SendStartMessage(message.Chat.Id, cancellationToken);
                 break;
@@ -182,21 +183,22 @@ public class TelegramBotService : BackgroundService
     {
         //1
         var inlineMarkup = new InlineKeyboardMarkup()
-            .AddNewRow("1.1", "1.2", "1.3")
+            //.AddNewRow("1.1", "1.2", "1.3")
             .AddNewRow()
                 .AddButton("WithCallbackData", "CallbackData")
                 .AddButton(InlineKeyboardButton.WithUrl("WithUrl", "https://github.com/TelegramBots/Telegram.Bot"));
         
         //2
-        Message startMessage = await _botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: "Выбери Опцию",
-            replyMarkup: inlineMarkup,
-            cancellationToken: cancellationToken);      
+        //Message startMessage = await _botClient.SendTextMessageAsync(
+        //    chatId: chatId,
+        //    text: "Выбери Опцию",
+        //    replyMarkup: inlineMarkup,
+        //    cancellationToken: cancellationToken);      
 
 
 
 
-        return await _botClient.SendMessage(startMessage.Chat, "Inline buttons:", replyMarkup: inlineMarkup);
+        //return await _botClient.SendMessage(startMessage.Chat.Id, "Inline buttons:", replyMarkup: inlineMarkup);
+        return await _botClient.SendTextMessageAsync(chatId, "Inline buttons:", replyMarkup: inlineMarkup);
     }
 }
